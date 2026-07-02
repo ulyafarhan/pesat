@@ -23,8 +23,9 @@
 /mlcv/tests/
 
 # Abaikan gambar simulasi & log hasil proses kamera di mlcv
-/mlcv/cam*/processed/*
-/mlcv/cam*/.pytest_cache/
+/mlcv/cam1/processed/
+/mlcv/cam2/processed/
+/mlcv/cam3/processed/
 /mlcv/*.ipynb
 
 # Dokumentasi Internal Agen AI (Hanya file spesifik ini yang diabaikan di root)

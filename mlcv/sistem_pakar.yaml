@@ -1,0 +1,1321 @@
+# =================================================================
+# SISTEM PAKAR PESAT - KNOWLEDGE BASE LENGKAP
+# Versi: 2.0 (100 Aturan Terstruktur)
+# Dasar Hukum:
+#   - Qanun Aceh No. 11 Tahun 2002 (Pelaksanaan Syariat Islam)
+#   - Qanun Aceh No. 14 Tahun 2003 (Khalwat/Mesum)
+#   - Qanun Aceh No. 6  Tahun 2014 (Hukum Jinayat)
+# Konteks Wilayah: Kota Lhokseumawe, Provinsi Aceh
+# =================================================================
+
+# ---------------------------------------------------------------
+# KONFIGURASI GLOBAL
+# ---------------------------------------------------------------
+global_threshold:
+  confidence_min: 0.50
+  distance_critical_m: 0.5
+  interaction_duration_s: 5
+  night_start: "18:00"
+  night_end: "06:00"
+  frame_sample_rate: 5            # Evaluasi setiap N frame
+  suppression_cooldown_s: 30      # Jeda sebelum alert ulang per subjek
+
+# ---------------------------------------------------------------
+# DEFINISI KELAS VISUAL (Label Operasional YOLO26n-Pose)
+# ---------------------------------------------------------------
+atribute_labels:
+  penampilan:
+    - head_cover_present          # Jilbab/kerudung terdeteksi
+    - head_cover_absent           # Kepala tidak tertutup
+    - upper_body_loose            # Pakaian atas longgar
+    - upper_body_non_loose        # Pakaian atas ketat/transparan
+    - lower_garment_long          # Rok/celana panjang (lutut ke bawah)
+    - lower_garment_short         # Celana/rok pendek (di atas lutut)
+    - full_body_cover_compliant   # Busana lengkap syar'i (perempuan)
+    - male_shorts_detected        # Celana pendek pada pria
+    - sleeveless_detected         # Tanpa lengan
+  pose_keypoints:                 # Format COCO-17
+    0:  nose
+    1:  left_eye
+    2:  right_eye
+    3:  left_ear
+    4:  right_ear
+    5:  left_shoulder
+    6:  right_shoulder
+    7:  left_elbow
+    8:  right_elbow
+    9:  left_wrist
+    10: right_wrist
+    11: left_hip
+    12: right_hip
+    13: left_knee
+    14: right_knee
+    15: left_ankle
+    16: right_ankle
+  zona_lhokseumawe:
+    - masjid_raya_lhokseumawe
+    - meunasah
+    - taman_riyadhah
+    - pantai_ujong_blang
+    - kawasan_kampus_unimal
+    - pasar_kota
+    - terminal_lhokseumawe
+    - area_kos_kosan
+    - jalan_merdeka
+    - taman_bungong_jeumpa
+    - kawasan_kuliner_malam
+    - komplek_perumahan
+    - alun_alun_kota
+    - pantai_lancok
+    - taman_monumen_perjuangan
+
+# ---------------------------------------------------------------
+# DAFTAR 100 ATURAN (RULE ENGINE)
+# ---------------------------------------------------------------
+aturan_pelanggaran:
+
+  # ============================================================
+  # KATEGORI A: KHALWAT & IKHTILATH (R-KHL-001 s/d R-KHL-020)
+  # Dasar: Qanun No. 14/2003 dan No. 6/2014 Pasal 23-24
+  # ============================================================
+
+  - id: R-KHL-001
+    deskripsi: "Kontak tangan langsung antara pria dan wanita bukan mahram di ruang publik"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      kps_trigger: [9, 10]        # Pergelangan tangan kiri & kanan
+      dist_threshold_norm: 0.80   # Hampir menyentuh dalam frame ternormalisasi
+      require_gender_diff: true
+      require_non_mahram: true    # Estimasi berbasis jarak/durasi
+      duration_min_s: 1
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-KHL-002
+    deskripsi: "Duduk berdekatan (< 0.3 m pseudo-BEV) di zona sepi tanpa mahram"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      dist_threshold_m: 0.3
+      area_type: isolated_zone
+      require_gender_diff: true
+      duration_min_s: 60
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-KHL-003
+    deskripsi: "Berpelukan (kontak bahu-bahu dan pinggang) antar lawan jenis bukan mahram"
+    qanun_ref: "Qanun 6/2014 Pasal 23"
+    logic:
+      kps_trigger: [5, 6, 11, 12] # Bahu + pinggul
+      dist_threshold_norm: 0.80
+      require_gender_diff: true
+      duration_min_s: 2
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-KHL-004
+    deskripsi: "Duduk berduaan di kendaraan parkir di zona sepi (malam hari)"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      context: vehicle_parked
+      area_type: isolated_zone
+      night_rule: true
+      require_gender_diff: true
+      person_count_max: 2
+      duration_min_s: 120
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-KHL-005
+    deskripsi: "Berjalan berdampingan sangat rapat (< 0.2 m) antara pria-wanita bukan mahram"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      motion_state: walking
+      dist_threshold_m: 0.2
+      require_gender_diff: true
+      duration_min_s: 10
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-KHL-006
+    deskripsi: "Kontak fisik kepala (kps 0–4) antara lawan jenis bukan mahram"
+    qanun_ref: "Qanun 6/2014 Pasal 23"
+    logic:
+      kps_trigger: [0, 1, 2, 3, 4]
+      dist_threshold_norm: 0.07
+      require_gender_diff: true
+      duration_min_s: 1
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-KHL-007
+    deskripsi: "Pasangan lawan jenis berduaan di area gelap/tidak berlampu (malam)"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      lighting_level: low          # Estimasi dari brightness histogram frame
+      area_type: isolated_zone
+      require_gender_diff: true
+      night_rule: true
+      person_count_max: 2
+      duration_min_s: 30
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-KHL-008
+    deskripsi: "Kontak tangan-bahu antara lawan jenis bukan mahram di area kampus"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      kps_trigger: [9, 5]
+      dist_threshold_norm: 0.06
+      require_gender_diff: true
+      zone_restriction: [kawasan_kampus_unimal]
+      duration_min_s: 3
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-KHL-009
+    deskripsi: "Dua individu berlawanan jenis berbaring/duduk di rerumputan area taman"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      pose_class: sitting_or_lying
+      dist_threshold_m: 0.5
+      area_type: [taman_riyadhah, taman_bungong_jeumpa, alun_alun_kota]
+      require_gender_diff: true
+      duration_min_s: 60
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-KHL-010
+    deskripsi: "Kontak tubuh bagian atas (dada-dada) antara lawan jenis"
+    qanun_ref: "Qanun 6/2014 Pasal 23"
+    logic:
+      kps_trigger: [5, 6]
+      dist_threshold_norm: 0.05
+      require_gender_diff: true
+      duration_min_s: 1
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-KHL-011
+    deskripsi: "Berduaan di sudut tersembunyi pasar/pertokoan setelah jam operasional"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      area_type: [pasar_kota]
+      time_window: { after: "21:00" }
+      require_gender_diff: true
+      person_count_max: 2
+      visibility: low
+      duration_min_s: 60
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-KHL-012
+    deskripsi: "Kontak tangan (holding hands) antara lawan jenis di area wisata pantai"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      kps_trigger: [9, 10]
+      dist_threshold_norm: 0.05
+      zone_restriction: [pantai_ujong_blang, pantai_lancok]
+      require_gender_diff: true
+      duration_min_s: 5
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-KHL-013
+    deskripsi: "Pasangan non-mahram berduaan di area kos-kosan (koridor/teras)"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      area_type: [area_kos_kosan]
+      require_gender_diff: true
+      person_count_max: 2
+      night_rule: true
+      duration_min_s: 120
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-KHL-014
+    deskripsi: "Dua individu berlawanan jenis terpantau masuk ke ruangan/bilik yang sama"
+    qanun_ref: "Qanun 14/2003 Pasal 5"
+    logic:
+      event_type: room_entry_shared
+      require_gender_diff: true
+      person_count_max: 2
+      duration_min_s: 30
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-KHL-015
+    deskripsi: "Ikhtilath di terminal: berdesakan tidak wajar antar lawan jenis pada jam sepi"
+    qanun_ref: "Qanun 6/2014 Pasal 24"
+    logic:
+      area_type: [terminal_lhokseumawe]
+      crowd_density: low
+      dist_threshold_m: 0.2
+      require_gender_diff: true
+      duration_min_s: 10
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-KHL-016
+    deskripsi: "Kontak fisik pinggang-pinggang atau tangan-pinggang antara lawan jenis"
+    qanun_ref: "Qanun 6/2014 Pasal 23"
+    logic:
+      kps_trigger: [9, 11]         # Pergelangan tangan ke pinggul
+      dist_threshold_norm: 0.06
+      require_gender_diff: true
+      duration_min_s: 2
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-KHL-017
+    deskripsi: "Pasangan non-mahram berlama-lama di area tepi pantai setelah Maghrib"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      zone_restriction: [pantai_ujong_blang, pantai_lancok]
+      time_window: { after: "18:00" }
+      require_gender_diff: true
+      person_count_max: 2
+      duration_min_s: 180
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-KHL-018
+    deskripsi: "Interaksi fisik di bawah payung bersama antara lawan jenis"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      context: shared_umbrella
+      dist_threshold_m: 0.3
+      require_gender_diff: true
+      duration_min_s: 10
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-KHL-019
+    deskripsi: "Berdua di warung/kafe sepi sudut tidak terlihat umum setelah jam 22:00"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      context: cafe_secluded_corner
+      time_window: { after: "22:00" }
+      require_gender_diff: true
+      person_count_max: 2
+      duration_min_s: 120
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-KHL-020
+    deskripsi: "Kontak tangan saat transaksi non-komersial antara lawan jenis bukan mahram"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      kps_trigger: [9, 10]
+      dist_threshold_norm: 0.05
+      require_gender_diff: true
+      context: non_commercial_exchange
+      duration_min_s: 3
+    priority: LOW
+    alert_level: 1
+
+  # ============================================================
+  # KATEGORI B: PELANGGARAN PAKAIAN / SYI'AR (R-PKN-001 s/d R-PKN-025)
+  # Dasar: Qanun No. 11/2002 Pasal 13-14, No. 6/2014 Pasal 36
+  # ============================================================
+
+  - id: R-PKN-001
+    deskripsi: "Wanita muslimah tanpa penutup kepala di ruang publik umum"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attribute: head_cover_absent
+      zone_restriction: [taman_kota, kawasan_kampus_unimal, pasar_kota, jalan_merdeka]
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-PKN-002
+    deskripsi: "Pria mengenakan celana pendek di area masjid/meunasah"
+    qanun_ref: "Qanun 11/2002 Pasal 14"
+    logic:
+      gender: male
+      attribute: lower_garment_short
+      zone_restriction: [masjid_raya_lhokseumawe, meunasah]
+    priority: LOW
+    alert_level: 1
+
+  - id: R-PKN-003
+    deskripsi: "Wanita mengenakan pakaian atas ketat (non-loose) di area publik"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attribute: upper_body_non_loose
+      zone_restriction: [taman_riyadhah, kawasan_kampus_unimal, pasar_kota, alun_alun_kota]
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-PKN-004
+    deskripsi: "Wanita mengenakan rok/celana pendek (di atas lutut) di area publik"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attribute: lower_garment_short
+      zone_restriction:
+        - taman_kota
+        - kawasan_kampus_unimal
+        - pasar_kota
+        - jalan_merdeka
+        - alun_alun_kota
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-PKN-005
+    deskripsi: "Pria bertelanjang dada di area publik non-pantai"
+    qanun_ref: "Qanun 11/2002 Pasal 14"
+    logic:
+      gender: male
+      attribute: upper_body_absent
+      zone_restriction: [pasar_kota, jalan_merdeka, taman_riyadhah, kawasan_kampus_unimal]
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-PKN-006
+    deskripsi: "Wanita mengenakan pakaian transparan di area publik"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attribute: upper_body_transparent   # Estimasi via skin-tone ratio model
+      zone_restriction: [pasar_kota, kawasan_kampus_unimal, alun_alun_kota]
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-PKN-007
+    deskripsi: "Wanita tanpa penutup kepala di kawasan kampus Unimal pada jam kuliah"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attribute: head_cover_absent
+      zone_restriction: [kawasan_kampus_unimal]
+      time_window: { from: "07:00", to: "17:00" }
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-PKN-008
+    deskripsi: "Pria bercelana pendek memasuki halaman masjid"
+    qanun_ref: "Qanun 11/2002 Pasal 14"
+    logic:
+      gender: male
+      attribute: lower_garment_short
+      event_type: zone_entry
+      zone_restriction: [masjid_raya_lhokseumawe, meunasah]
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-PKN-009
+    deskripsi: "Wanita memakai kaos oblong tanpa lengan (sleeveless) di area publik"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attribute: sleeveless_detected
+      zone_restriction: [taman_kota, pasar_kota, kawasan_kampus_unimal]
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-PKN-010
+    deskripsi: "Pria memakai kaos oblong tanpa lengan di area masjid/meunasah"
+    qanun_ref: "Qanun 11/2002 Pasal 14"
+    logic:
+      gender: male
+      attribute: sleeveless_detected
+      zone_restriction: [masjid_raya_lhokseumawe, meunasah]
+    priority: LOW
+    alert_level: 1
+
+  - id: R-PKN-011
+    deskripsi: "Wanita berbusana non-syar'i lengkap (tanpa hijab + pakaian ketat) di taman kota"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attributes_all: [head_cover_absent, upper_body_non_loose]
+      zone_restriction: [taman_riyadhah, taman_bungong_jeumpa, alun_alun_kota]
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-PKN-012
+    deskripsi: "Wanita tanpa hijab di kawasan wisata pantai Lhokseumawe"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attribute: head_cover_absent
+      zone_restriction: [pantai_ujong_blang, pantai_lancok]
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-PKN-013
+    deskripsi: "Wanita berpakaian adat/kostum non-syar'i (tampak telanjang dada) di publik"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attribute: upper_body_absent
+      zone_restriction:
+        - taman_kota
+        - alun_alun_kota
+        - pasar_kota
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-PKN-014
+    deskripsi: "Pria mengenakan pakaian menyerupai wanita di area publik"
+    qanun_ref: "Qanun 6/2014 Pasal 36"
+    logic:
+      gender: male
+      attribute: cross_dress_detected   # Model klasifikasi gender vs penampilan
+      confidence_min: 0.65
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-PKN-015
+    deskripsi: "Wanita mengenakan pakaian menyerupai pria (full male attire) di publik"
+    qanun_ref: "Qanun 6/2014 Pasal 36"
+    logic:
+      gender: female
+      attribute: cross_dress_detected
+      confidence_min: 0.65
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-PKN-016
+    deskripsi: "Wanita berbusana mini (rok < 40 cm dari pinggang) di terminal/pasar"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attribute: lower_garment_short
+      kps_trigger: [12, 14]      # Pinggul ke lutut — rasio pendek
+      zone_restriction: [terminal_lhokseumawe, pasar_kota]
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-PKN-017
+    deskripsi: "Wanita hanya mengenakan pakaian renang di area publik non-kolam"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attribute: swimwear_detected
+      zone_restriction: [pantai_ujong_blang, pantai_lancok]   # Deteksi meskipun di pantai umum
+      confidence_min: 0.70
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-PKN-018
+    deskripsi: "Pria berpakaian hanya celana pendek di kawasan pasar/pertokoan"
+    qanun_ref: "Qanun 11/2002 Pasal 14"
+    logic:
+      gender: male
+      attributes_all: [upper_body_absent, lower_garment_short]
+      zone_restriction: [pasar_kota, jalan_merdeka]
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-PKN-019
+    deskripsi: "Wanita muslimah berbusana tidak menutupi dada di kawasan kuliner malam"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attribute: upper_body_non_loose
+      zone_restriction: [kawasan_kuliner_malam]
+      night_rule: true
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-PKN-020
+    deskripsi: "Pria memasuki masjid dengan memakai celana pendek saat salat Jumat"
+    qanun_ref: "Qanun 11/2002 Pasal 14"
+    logic:
+      gender: male
+      attribute: lower_garment_short
+      zone_restriction: [masjid_raya_lhokseumawe, meunasah]
+      time_window: { from: "11:30", to: "13:30" }
+      day_of_week: [Friday]
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-PKN-021
+    deskripsi: "Wanita tanpa penutup kepala memasuki area meunasah untuk kegiatan ibadah"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attribute: head_cover_absent
+      zone_restriction: [meunasah]
+      event_type: zone_entry
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-PKN-022
+    deskripsi: "Remaja wanita (estimasi usia 13–17) tanpa hijab di jam sekolah di area publik"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attribute: head_cover_absent
+      age_estimate: [13, 17]      # Estimasi berbasis tinggi badan/proporsi
+      time_window: { from: "07:00", to: "14:00" }
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-PKN-023
+    deskripsi: "Wanita berbusana terbuka (lengan atas terlihat) di komplek perumahan umum"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attribute: sleeveless_detected
+      zone_restriction: [komplek_perumahan]
+    priority: LOW
+    alert_level: 1
+
+  - id: R-PKN-024
+    deskripsi: "Pria berkumpul di depan masjid berpakaian tidak pantas (celana sobek/singlet)"
+    qanun_ref: "Qanun 11/2002 Pasal 14"
+    logic:
+      gender: male
+      attributes_any: [sleeveless_detected, lower_garment_short]
+      zone_restriction: [masjid_raya_lhokseumawe, meunasah]
+      context: loitering_frontyard
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-PKN-025
+    deskripsi: "Wanita berpakaian lengkap non-syar'i (tanpa hijab + rok pendek) di alun-alun malam"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attributes_all: [head_cover_absent, lower_garment_short]
+      zone_restriction: [alun_alun_kota, taman_monumen_perjuangan]
+      night_rule: true
+    priority: HIGH
+    alert_level: 2
+
+  # ============================================================
+  # KATEGORI C: HYBRID — POSE + ATRIBUT (R-HYB-001 s/d R-HYB-015)
+  # Dasar: Kombinasi Qanun 14/2003 dan 11/2002
+  # ============================================================
+
+  - id: R-HYB-001
+    deskripsi: "Kontak fisik bahu/tubuh atas antara lawan jenis dengan pakaian ketat"
+    qanun_ref: "Qanun 14/2003; Qanun 11/2002 Pasal 13"
+    logic:
+      kps_trigger: [5, 6]
+      dist_threshold_norm: 0.08
+      require_gender_diff: true
+      attribute_any: [upper_body_non_loose]
+      duration_min_s: 2
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-HYB-002
+    deskripsi: "Pegangan tangan antara lawan jenis, wanita tanpa hijab, di area taman"
+    qanun_ref: "Qanun 14/2003; Qanun 11/2002 Pasal 13"
+    logic:
+      kps_trigger: [9, 10]
+      dist_threshold_norm: 0.05
+      require_gender_diff: true
+      attribute: head_cover_absent
+      zone_restriction: [taman_riyadhah, taman_bungong_jeumpa]
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-HYB-003
+    deskripsi: "Duduk berdekatan lawan jenis tanpa hijab di kawasan kuliner malam"
+    qanun_ref: "Qanun 14/2003; Qanun 11/2002"
+    logic:
+      dist_threshold_m: 0.3
+      require_gender_diff: true
+      attribute: head_cover_absent
+      zone_restriction: [kawasan_kuliner_malam]
+      night_rule: true
+      duration_min_s: 30
+    priority: MEDIUM
+    alert_level: 2
+
+  - id: R-HYB-004
+    deskripsi: "Kontak tangan antara lawan jenis dengan pakaian atas transparan"
+    qanun_ref: "Qanun 14/2003; Qanun 11/2002 Pasal 13"
+    logic:
+      kps_trigger: [9, 10]
+      dist_threshold_norm: 0.05
+      require_gender_diff: true
+      attribute: upper_body_transparent
+      duration_min_s: 2
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-HYB-005
+    deskripsi: "Pasangan non-mahram berdekatan di pantai, wanita berpakaian tidak syar'i"
+    qanun_ref: "Qanun 14/2003; Qanun 11/2002 Pasal 13"
+    logic:
+      dist_threshold_m: 0.5
+      require_gender_diff: true
+      attributes_all: [head_cover_absent, lower_garment_short]
+      zone_restriction: [pantai_ujong_blang, pantai_lancok]
+      duration_min_s: 60
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-HYB-006
+    deskripsi: "Kontak fisik antara lawan jenis berbusana minim di kawasan wisata pantai malam"
+    qanun_ref: "Qanun 14/2003; Qanun 11/2002 Pasal 13"
+    logic:
+      kps_trigger: [5, 6, 9, 10]
+      dist_threshold_norm: 0.10
+      require_gender_diff: true
+      attribute: full_body_cover_compliant
+      attribute_negated: true      # Artinya: TIDAK berpakaian lengkap
+      zone_restriction: [pantai_ujong_blang, pantai_lancok]
+      night_rule: true
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-HYB-007
+    deskripsi: "Dua individu berlawanan jenis berbusana minim terpantau di area kos malam hari"
+    qanun_ref: "Qanun 14/2003; Qanun 11/2002"
+    logic:
+      area_type: [area_kos_kosan]
+      require_gender_diff: true
+      attributes_any: [upper_body_non_loose, lower_garment_short, head_cover_absent]
+      night_rule: true
+      duration_min_s: 60
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-HYB-008
+    deskripsi: "Pria mengikuti wanita berbusana minim di area publik (stalking posture)"
+    qanun_ref: "Qanun 6/2014 Pasal 23; Qanun 11/2002"
+    logic:
+      motion_state: following
+      gender_follower: male
+      gender_target: female
+      attribute_target: head_cover_absent
+      dist_threshold_m: 1.0
+      duration_min_s: 30
+    priority: MEDIUM
+    alert_level: 2
+
+  - id: R-HYB-009
+    deskripsi: "Kelompok campuran pria-wanita tidak berhijab duduk melingkar di taman malam"
+    qanun_ref: "Qanun 6/2014 Pasal 24; Qanun 11/2002"
+    logic:
+      group_composition: mixed_gender
+      attribute: head_cover_absent
+      zone_restriction: [taman_riyadhah, taman_bungong_jeumpa]
+      night_rule: true
+      person_count_min: 4
+      duration_min_s: 120
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-HYB-010
+    deskripsi: "Kontak fisik di area pasar antara pria-wanita; wanita berpakaian ketat"
+    qanun_ref: "Qanun 14/2003; Qanun 11/2002"
+    logic:
+      kps_trigger: [9, 5]
+      dist_threshold_norm: 0.07
+      require_gender_diff: true
+      attribute_female: upper_body_non_loose
+      zone_restriction: [pasar_kota]
+    priority: MEDIUM
+    alert_level: 2
+
+  - id: R-HYB-011
+    deskripsi: "Bonceng sepeda motor lawan jenis non-mahram berdekatan intim (kontak pinggang)"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      context: motorcycle_riding
+      kps_trigger: [11, 12]      # Kontak pinggul
+      require_gender_diff: true
+      dist_threshold_norm: 0.08
+    priority: MEDIUM
+    alert_level: 2
+
+  - id: R-HYB-012
+    deskripsi: "Wanita tanpa hijab + pakaian ketat bersama pria berdekatan di area kampus malam"
+    qanun_ref: "Qanun 14/2003; Qanun 11/2002"
+    logic:
+      zone_restriction: [kawasan_kampus_unimal]
+      night_rule: true
+      require_gender_diff: true
+      attributes_female_all: [head_cover_absent, upper_body_non_loose]
+      dist_threshold_m: 0.5
+      duration_min_s: 60
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-HYB-013
+    deskripsi: "Pasangan lawan jenis menggunakan selimut/penutup bersama di ruang publik"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      context: shared_blanket
+      require_gender_diff: true
+      duration_min_s: 30
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-HYB-014
+    deskripsi: "Kontak kepala (bersandar) antara lawan jenis di area taman atau fasilitas publik"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      kps_trigger: [0, 5]        # Kepala ke bahu target
+      dist_threshold_norm: 0.10
+      require_gender_diff: true
+      duration_min_s: 10
+    priority: MEDIUM
+    alert_level: 2
+
+  - id: R-HYB-015
+    deskripsi: "Selfie/foto intim dengan kontak fisik antara lawan jenis bukan mahram di publik"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      kps_trigger: [9, 5]
+      dist_threshold_norm: 0.08
+      require_gender_diff: true
+      context: selfie_pose
+      duration_min_s: 3
+    priority: MEDIUM
+    alert_level: 1
+
+  # ============================================================
+  # KATEGORI D: LOKASI SPESIFIK LHOKSEUMAWE (R-LKS-001 s/d R-LKS-020)
+  # ============================================================
+
+  - id: R-LKS-001
+    zone: "Pantai Ujong Blang"
+    deskripsi: "Pasangan non-mahram duduk berdua di tepi pantai setelah Maghrib"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      zone: pantai_ujong_blang
+      time_window: { after: "18:00" }
+      require_gender_diff: true
+      person_count_max: 2
+      dist_threshold_m: 0.5
+      duration_min_s: 120
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-LKS-002
+    zone: "Pantai Ujong Blang"
+    deskripsi: "Wanita berbusana pakaian renang/bikini di pantai publik Ujong Blang"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      zone: pantai_ujong_blang
+      gender: female
+      attribute: swimwear_detected
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-LKS-003
+    zone: "Taman Riyadhah"
+    deskripsi: "Interaksi fisik antara lawan jenis di Taman Riyadhah siang hari"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      zone: taman_riyadhah
+      kps_trigger: [9, 10]
+      dist_threshold_norm: 0.06
+      require_gender_diff: true
+      duration_min_s: 5
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-LKS-004
+    zone: "Taman Riyadhah"
+    deskripsi: "Wanita tanpa hijab berolah raga di Taman Riyadhah pagi hari"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      zone: taman_riyadhah
+      gender: female
+      attribute: head_cover_absent
+      motion_state: jogging_or_exercise
+      time_window: { from: "05:00", to: "09:00" }
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-LKS-005
+    zone: "Kawasan Kampus Unimal"
+    deskripsi: "Wanita tanpa hijab melintas di pintu gerbang utama Unimal"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      zone: kawasan_kampus_unimal
+      gender: female
+      attribute: head_cover_absent
+      event_type: gate_crossing
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-LKS-006
+    zone: "Kawasan Kampus Unimal"
+    deskripsi: "Pasangan non-mahram berdua di pojok gedung kampus setelah jam kuliah"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      zone: kawasan_kampus_unimal
+      require_gender_diff: true
+      person_count_max: 2
+      time_window: { after: "17:00" }
+      area_subtype: building_corner
+      duration_min_s: 60
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-LKS-007
+    zone: "Masjid Raya Lhokseumawe"
+    deskripsi: "Wanita memasuki area salat pria di Masjid Raya"
+    qanun_ref: "Qanun 11/2002 Pasal 14"
+    logic:
+      zone: masjid_raya_lhokseumawe
+      gender: female
+      event_type: zone_entry_restricted
+      subzone: male_prayer_area
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-LKS-008
+    zone: "Masjid Raya Lhokseumawe"
+    deskripsi: "Individu tidak berpakaian sopan (celana pendek/tanpa hijab) memasuki halaman masjid"
+    qanun_ref: "Qanun 11/2002 Pasal 13-14"
+    logic:
+      zone: masjid_raya_lhokseumawe
+      event_type: zone_entry
+      attributes_any: [lower_garment_short, head_cover_absent, sleeveless_detected]
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-LKS-009
+    zone: "Pasar Kota Lhokseumawe"
+    deskripsi: "Wanita berbusana ketat tanpa hijab berjualan atau berkeliling pasar siang hari"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      zone: pasar_kota
+      gender: female
+      attributes_all: [head_cover_absent, upper_body_non_loose]
+      duration_min_s: 120
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-LKS-010
+    zone: "Terminal Lhokseumawe"
+    deskripsi: "Pasangan non-mahram berduaan di sudut terminal malam hari"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      zone: terminal_lhokseumawe
+      require_gender_diff: true
+      person_count_max: 2
+      night_rule: true
+      area_subtype: isolated_corner
+      duration_min_s: 60
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-LKS-011
+    zone: "Kawasan Kuliner Malam"
+    deskripsi: "Kelompok campuran gender berpakaian tidak syar'i di warung kuliner malam"
+    qanun_ref: "Qanun 11/2002; Qanun 6/2014 Pasal 24"
+    logic:
+      zone: kawasan_kuliner_malam
+      group_composition: mixed_gender
+      attributes_any: [head_cover_absent, lower_garment_short]
+      night_rule: true
+      person_count_min: 3
+      duration_min_s: 60
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-LKS-012
+    zone: "Kawasan Kuliner Malam"
+    deskripsi: "Individu terindikasi dalam pengaruh substansi (gaya jalan tidak stabil) di kuliner malam"
+    qanun_ref: "Qanun 6/2014 Pasal 15 (Khamar)"
+    logic:
+      zone: kawasan_kuliner_malam
+      gait_anomaly: true          # Deteksi gaya jalan via pose velocity
+      night_rule: true
+      confidence_min: 0.65
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-LKS-013
+    zone: "Jalan Merdeka"
+    deskripsi: "Wanita tanpa hijab mengendarai kendaraan di Jalan Merdeka"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      zone: jalan_merdeka
+      gender: female
+      attribute: head_cover_absent
+      context: riding_vehicle
+    priority: LOW
+    alert_level: 1
+
+  - id: R-LKS-014
+    zone: "Area Kos-Kosan"
+    deskripsi: "Pria tidak dikenal memasuki area kos wanita larut malam"
+    qanun_ref: "Qanun 14/2003 Pasal 5"
+    logic:
+      zone: area_kos_kosan
+      gender: male
+      event_type: zone_entry
+      subzone: female_dormitory
+      time_window: { after: "21:00" }
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-LKS-015
+    zone: "Alun-Alun Kota"
+    deskripsi: "Pasangan berboncengan dan berhenti intim di alun-alun kota malam hari"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      zone: alun_alun_kota
+      context: motorcycle_parked
+      require_gender_diff: true
+      night_rule: true
+      dist_threshold_m: 0.3
+      duration_min_s: 60
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-LKS-016
+    zone: "Taman Bungong Jeumpa"
+    deskripsi: "Pasangan non-mahram duduk di bangku taman Bungong Jeumpa malam hari"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      zone: taman_bungong_jeumpa
+      require_gender_diff: true
+      person_count_max: 2
+      pose_class: sitting
+      night_rule: true
+      duration_min_s: 60
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-LKS-017
+    zone: "Pantai Lancok"
+    deskripsi: "Kelompok campuran pria-wanita tanpa hijab berkumpul di Pantai Lancok malam"
+    qanun_ref: "Qanun 11/2002; Qanun 6/2014 Pasal 24"
+    logic:
+      zone: pantai_lancok
+      group_composition: mixed_gender
+      attribute: head_cover_absent
+      night_rule: true
+      person_count_min: 4
+      duration_min_s: 120
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-LKS-018
+    zone: "Taman Monumen Perjuangan"
+    deskripsi: "Pasangan non-mahram berpegangan tangan di taman monumen"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      zone: taman_monumen_perjuangan
+      kps_trigger: [9, 10]
+      dist_threshold_norm: 0.05
+      require_gender_diff: true
+      duration_min_s: 5
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-LKS-019
+    zone: "Komplek Perumahan"
+    deskripsi: "Aktivitas tidak wajar di garasi/halaman perumahan antara lawan jenis malam hari"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      zone: komplek_perumahan
+      require_gender_diff: true
+      area_subtype: garage_or_yard
+      night_rule: true
+      person_count_max: 2
+      duration_min_s: 120
+    priority: MEDIUM
+    alert_level: 2
+
+  - id: R-LKS-020
+    zone: "Meunasah"
+    deskripsi: "Wanita tanpa busana syar'i menghadiri kegiatan di meunasah"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      zone: meunasah
+      gender: female
+      attributes_any: [head_cover_absent, upper_body_non_loose, lower_garment_short]
+      event_type: zone_entry
+    priority: HIGH
+    alert_level: 2
+
+  # ============================================================
+  # KATEGORI E: WAKTU (R-WKT-001 s/d R-WKT-010)
+  # Aturan berbasis temporal — kondisi khusus jam/hari
+  # ============================================================
+
+  - id: R-WKT-001
+    deskripsi: "Aktivitas parkir kendaraan berpasangan non-mahram saat jam salat Maghrib"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      context: vehicle_parked
+      require_gender_diff: true
+      time_window: { from: "17:45", to: "18:30" }
+      duration_min_s: 30
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-WKT-002
+    deskripsi: "Wanita tanpa hijab berkeliaran di area publik pada jam salat Jumat"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attribute: head_cover_absent
+      time_window: { from: "11:45", to: "13:00" }
+      day_of_week: [Friday]
+      zone_restriction:
+        - jalan_merdeka
+        - pasar_kota
+        - alun_alun_kota
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-WKT-003
+    deskripsi: "Kerumunan campuran gender tidak syar'i di area publik setelah Isya"
+    qanun_ref: "Qanun 6/2014 Pasal 24"
+    logic:
+      group_composition: mixed_gender
+      attribute: head_cover_absent
+      time_window: { after: "19:30" }
+      person_count_min: 5
+      duration_min_s: 120
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-WKT-004
+    deskripsi: "Pasangan non-mahram terdeteksi di area terbuka lebih dari 1 jam saat malam"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      require_gender_diff: true
+      night_rule: true
+      duration_min_s: 3600
+      area_type: public_outdoor
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-WKT-005
+    deskripsi: "Aktivitas tidak wajar di pantai setelah jam 22:00 oleh kelompok campuran"
+    qanun_ref: "Qanun 14/2003; Qanun 6/2014"
+    logic:
+      zone_restriction: [pantai_ujong_blang, pantai_lancok]
+      group_composition: mixed_gender
+      time_window: { after: "22:00" }
+      person_count_min: 2
+      duration_min_s: 60
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-WKT-006
+    deskripsi: "Kendaraan parkir di pinggir jalan sepi dengan penumpang campuran gender larut malam"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      context: vehicle_parked_roadside
+      require_gender_diff: true
+      time_window: { after: "23:00" }
+      duration_min_s: 300
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-WKT-007
+    deskripsi: "Wanita berjalan sendirian tanpa hijab di jalan sepi setelah jam 21:00"
+    qanun_ref: "Qanun 11/2002 Pasal 13"
+    logic:
+      gender: female
+      attribute: head_cover_absent
+      motion_state: walking_solo
+      time_window: { after: "21:00" }
+      crowd_density: very_low
+    priority: LOW
+    alert_level: 1
+
+  - id: R-WKT-008
+    deskripsi: "Kegiatan berkumpul non-formal campuran gender di area publik hingga dini hari"
+    qanun_ref: "Qanun 6/2014 Pasal 24"
+    logic:
+      group_composition: mixed_gender
+      time_window: { after: "00:00", to: "04:00" }
+      person_count_min: 3
+      duration_min_s: 120
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-WKT-009
+    deskripsi: "Remaja (estimasi < 18 tahun) beraktivitas di area publik setelah jam 22:00 tanpa pendamping dewasa"
+    qanun_ref: "Qanun 11/2002 Pasal 14"
+    logic:
+      age_estimate_max: 18
+      time_window: { after: "22:00" }
+      adult_companion: false
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-WKT-010
+    deskripsi: "Aktivitas penjualan atau transaksi tidak jelas oleh kelompok campuran di terminal malam hari"
+    qanun_ref: "Qanun 6/2014 Pasal 24"
+    logic:
+      zone: terminal_lhokseumawe
+      group_composition: mixed_gender
+      night_rule: true
+      motion_state: loitering
+      duration_min_s: 180
+    priority: MEDIUM
+    alert_level: 2
+
+  # ============================================================
+  # KATEGORI F: KONTEKSTUAL & KELOMPOK (R-CTX-001 s/d R-CTX-010)
+  # Aturan berbasis skenario dan perilaku kolektif
+  # ============================================================
+
+  - id: R-CTX-001
+    deskripsi: "Kelompok campuran gender menonton sesuatu bersama di layar/proyektor luar ruangan malam"
+    qanun_ref: "Qanun 6/2014 Pasal 24"
+    logic:
+      group_composition: mixed_gender
+      context: outdoor_screen_watching
+      night_rule: true
+      dist_threshold_m: 0.5
+      person_count_min: 4
+      duration_min_s: 300
+    priority: MEDIUM
+    alert_level: 1
+
+  - id: R-CTX-002
+    deskripsi: "Individu terindikasi mabuk (gaya jalan zigzag, jatuh) di area publik siang hari"
+    qanun_ref: "Qanun 6/2014 Pasal 15 (Khamar)"
+    logic:
+      gait_anomaly: true
+      gait_pattern: [zigzag, stumbling]
+      confidence_min: 0.70
+      time_window: { from: "06:00", to: "18:00" }
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-CTX-003
+    deskripsi: "Pengemis/gelandangan berpakaian tidak pantas di sekitar area ibadah"
+    qanun_ref: "Qanun 11/2002 Pasal 14"
+    logic:
+      context: vagrancy
+      zone_restriction: [masjid_raya_lhokseumawe, meunasah]
+      attributes_any: [upper_body_absent, lower_garment_short]
+      duration_min_s: 60
+    priority: LOW
+    alert_level: 1
+
+  - id: R-CTX-004
+    deskripsi: "Individu mencurigakan mengambil foto/video orang lain tanpa izin di area publik"
+    qanun_ref: "Qanun 6/2014; UU ITE No. 19/2016 (konteks)"
+    logic:
+      context: covert_photography
+      pose_class: phone_raised_toward_subject
+      duration_min_s: 5
+      target_awareness: low      # Target tidak menyadari
+    priority: MEDIUM
+    alert_level: 2
+
+  - id: R-CTX-005
+    deskripsi: "Pria berkelompok mengintimidasi atau mengikuti wanita sendirian di area publik"
+    qanun_ref: "Qanun 6/2014 Pasal 23"
+    logic:
+      context: group_following_individual
+      gender_group: male
+      gender_target: female
+      person_count_group_min: 2
+      dist_threshold_m: 2.0
+      motion_state: following
+      duration_min_s: 20
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-CTX-006
+    deskripsi: "Penyalahgunaan area parkir (berpasangan non-mahram > 30 menit dalam kendaraan)"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      context: vehicle_parked_prolonged
+      require_gender_diff: true
+      duration_min_s: 1800
+      zone_restriction:
+        - kawasan_kampus_unimal
+        - pasar_kota
+        - alun_alun_kota
+        - taman_riyadhah
+    priority: HIGH
+    alert_level: 2
+
+  - id: R-CTX-007
+    deskripsi: "Individu membuang minuman keras atau botol tidak wajar di area ibadah"
+    qanun_ref: "Qanun 6/2014 Pasal 15"
+    logic:
+      context: object_disposal_suspicious
+      object_type: bottle_container
+      zone_restriction: [masjid_raya_lhokseumawe, meunasah, taman_riyadhah]
+      confidence_min: 0.60
+    priority: MEDIUM
+    alert_level: 2
+
+  - id: R-CTX-008
+    deskripsi: "Perjudian (kerumunan mengitari permainan dadu/kartu) terdeteksi di area publik"
+    qanun_ref: "Qanun 6/2014 Pasal 18 (Maisir)"
+    logic:
+      context: gambling_activity_detected
+      person_count_min: 3
+      motion_state: huddle_circle
+      duration_min_s: 120
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-CTX-009
+    deskripsi: "Pasangan non-mahram diantar/dijemput di area kos wanita larut malam (entry-exit tracking)"
+    qanun_ref: "Qanun 14/2003 Pasal 4"
+    logic:
+      context: doorstep_interaction
+      zone: area_kos_kosan
+      subzone: female_dormitory_entrance
+      require_gender_diff: true
+      time_window: { after: "22:00" }
+      duration_min_s: 60
+    priority: HIGH
+    alert_level: 3
+
+  - id: R-CTX-010
+    deskripsi: "Rekaman eksibisionisme atau perilaku tidak senonoh di area publik (estimasi aksi intim di luar ruangan)"
+    qanun_ref: "Qanun 6/2014 Pasal 23"
+    logic:
+      context: public_indecent_exposure
+      confidence_min: 0.75
+      require_gender_diff: false   # Berlaku untuk semua kombinasi
+    priority: HIGH
+    alert_level: 3
+
+# ---------------------------------------------------------------
+# RINGKASAN DISTRIBUSI ATURAN
+# ---------------------------------------------------------------
+statistik_aturan:
+  total: 100
+  distribusi:
+    R-KHL (Khalwat & Ikhtilath): 20
+    R-PKN (Pelanggaran Pakaian): 25
+    R-HYB (Hybrid Pose + Atribut): 15
+    R-LKS (Lokasi Spesifik Lhokseumawe): 20
+    R-WKT (Berbasis Waktu): 10
+    R-CTX (Kontekstual & Kelompok): 10
+  prioritas:
+    HIGH: 62
+    MEDIUM: 30
+    LOW: 8
+  alert_level:
+    level_1 (Log saja):        24
+    level_2 (Notifikasi):      47
+    level_3 (Tindak Segera):   29
+
+# ---------------------------------------------------------------
+# KEBIJAKAN PRIVASI (PDP Compliant)
+# ---------------------------------------------------------------
+privacy_policy:
+  retention_confirmed_days: 30
+  retention_ignored_hours: 24
+  data_minimization: true
+  face_blur_default: true           # Wajah diblur sebelum logging
+  coordinate_anonymize: true        # Koordinat GPS dibulatkan ke 50 m
+  audit_log_required: true          # Setiap akses rekaman wajib dicatat
+  operator_access_roles:
+    - satpol_pp_supervisor
+    - wilayatul_hisbah_officer
+    - system_admin_readonly

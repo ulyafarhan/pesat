@@ -1,0 +1,23 @@
+{
+  "name": "PESAT Lhokseumawe Control Center",
+  "short_name": "PESAT",
+  "description": "Sistem Pemantauan Pelanggaran Syariat Islam Berbasis AI - Lhokseumawe Smart City",
+  "start_url": "/dashboard",
+  "background_color": "#0a0e1a",
+  "theme_color": "#f59e0b",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "type": "image/png",
+      "sizes": "180x180"
+    }
+  ]
+}

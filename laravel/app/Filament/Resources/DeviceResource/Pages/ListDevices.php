@@ -1,0 +1,24 @@
+<?php
+
+namespace App\Filament\Resources\DeviceResource\Pages;
+
+use App\Filament\Resources\DeviceResource;
+use Filament\Resources\Pages\ListRecords;
+
+class ListDevices extends ListRecords
+{
+    protected static string $resource = DeviceResource::class;
+
+    public function getListeners(): array
+    {
+        if (config('broadcasting.default') !== 'reverb') {
+            return [];
+        }
+
+        return [
+            'echo:pesat-telemetry,.telemetry.updated' => '$refresh',
+        ];
+    }
+}
+
+

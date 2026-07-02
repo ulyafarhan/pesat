@@ -1,0 +1,72 @@
+# Laravel
+/laravel/.phpunit.cache
+/laravel/bootstrap/ssr
+/laravel/node_modules
+/laravel/public/build
+/laravel/public/fonts-manifest.dev.json
+/laravel/public/hot
+/laravel/public/storage
+/laravel/resources/js/actions
+/laravel/resources/js/routes
+/laravel/resources/js/wayfinder
+/laravel/storage/*.key
+/laravel/storage/pail
+/laravel/vendor
+/laravel/.env
+/laravel/.env.backup
+/laravel/.env.production
+/laravel/.phpactor.json
+/laravel/.phpunit.result.cache
+/laravel/Homestead.json
+/laravel/Homestead.yaml
+/laravel/npm-debug.log
+/laravel/yarn-error.log
+/laravel/auth.json
+
+# Laravel Runtime & Storage
+/laravel/storage/logs/*.log
+/laravel/storage/app/detections/*
+!/laravel/storage/app/detections/.gitkeep
+/laravel/storage/app/public/*
+!/laravel/storage/app/public/.gitkeep
+/laravel/database/*.sqlite
+/laravel/database/*.sqlite-journal
+
+# Python edge
+/mlcv/venv
+/mlcv/__pycache__
+/mlcv/**/__pycache__
+/mlcv/.pytest_cache
+/mlcv/relay.log
+
+# Large Binary & AI Assets
+/mlcv/*.ipynb
+
+# Dokumentasi Internal Agen AI (Hanya file spesifik ini yang diabaikan di root)
+/AGENTS.md
+/SKILL.md
+/research.google-design.md
+/SIWAS_AI_Fullstack_Agent.md
+/Sistem_Informasi_Pengawasan_Smart_City__SIWAS____GEMASTIK_2026.md
+
+# Local Test & Debug Assets
+/test-dummy/
+/.pytest_cache
+/.agent_*.json
+/mlcv/test_inference.py
+/test_diagnose.py
+/mlcv/tests/
+
+# GitHub Workflows
+/.github/
+
+# IDE
+/.fleet
+/.idea
+/.nova
+/.vscode
+/.zed
+
+# OS
+.DS_Store
+Thumbs.db

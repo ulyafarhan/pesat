@@ -1,0 +1,58 @@
+name: 'Kamera CCTV'
+description: ''
+endpoints:
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/cameras/{id}'
+    metadata:
+      custom: []
+      groupName: 'Kamera CCTV'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Ambil Detail Kamera'
+      description: ''
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'ID kamera.'
+        required: true
+        example: CAM-001
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: CAM-001
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"id":"CAM-001","location_name":"Taman Riyadhah","latitude":"5.18020000","longitude":"97.15070000","is_active":true}'
+        headers: []
+        description: Sukses
+      -
+        custom: []
+        status: 404
+        content: '{"error":"Camera not found"}'
+        headers: []
+        description: 'Tidak Ditemukan'
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null

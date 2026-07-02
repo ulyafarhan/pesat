@@ -1,0 +1,2 @@
+PLACEHOLDER: Replace this with a real alert.mp3 file.
+Download any short alert/beep sound and place it at: public/assets/sounds/alert.mp3

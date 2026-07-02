@@ -1,0 +1,22 @@
+api_base: "http://localhost:8000"
+api_key: "83VOcMbYvPrzdsWCDJmKEUphAZ2BqHxT"
+
+models:
+  yolo: "best_yolo_pose.onnx"
+  classifier: "best_deteksi_int8.onnx"
+  rules: "sistem_pakar.yaml"
+
+inference_interval_seconds: 5
+min_confidence: 0.5
+heartbeat_interval_seconds: 30
+
+retry:
+  max_attempts: 5
+  backoff_base_seconds: 2
+  backoff_max_seconds: 60
+
+detections_dir: "laravel/storage/app/detections"
+
+logging:
+  file: "relay.log"
+  level: "INFO"

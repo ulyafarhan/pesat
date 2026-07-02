@@ -1,0 +1,287 @@
+openapi: 3.0.3
+info:
+  title: SIWAS Telemetry & Edge API
+  description: |
+    API untuk Sistem Informasi Pengawasan Smart City.
+    Menerima data deteksi anomali dari edge device Python,
+    menyediakan polling real-time, dan mengelola edge device.
+  version: 2.0.0
+
+servers:
+  - url: https://your-vps.com/api
+    description: Production VPS
+  - url: http://localhost:8000/api
+    description: Local Development
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
+
+paths:
+  /telemetry/log:
+    post:
+      summary: Kirim log deteksi telemetri
+      description: |
+        Endpoint untuk mengirimkan hasil deteksi objek/anomali dari kamera AI.
+        Label akan di-normalisasi via firstOrCreate, event broadcast dipicu.
+      tags:
+        - Telemetry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - camera_id
+                - label_detected
+                - confidence_score
+              properties:
+                camera_id:
+                  type: string
+                  description: ID kamera terdaftar
+                  example: CAM-001
+                label_detected:
+                  type: string
+                  description: Label hasil deteksi AI
+                  example: "[Wanita] R-PKN-001: Tidak mengenakan hijab"
+                confidence_score:
+                  type: number
+                  format: float
+                  minimum: 0
+                  maximum: 1
+                  description: Skor kepercayaan (0.0 - 1.0)
+                  example: 0.925
+      responses:
+        '201':
+          description: Log berhasil disimpan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    $ref: '#/components/schemas/DetectionLog'
+        '401':
+          description: Unauthorized
+        '422':
+          description: Validasi gagal
+
+  /telemetry/latest:
+    get:
+      summary: Polling log deteksi terbaru
+      description: |
+        Endpoint polling ringan. Gunakan `after_id` untuk incremental.
+        `total_today` di-cache 60 detik.
+      tags:
+        - Telemetry
+      security: []
+      parameters:
+        - name: after_id
+          in: query
+          schema:
+            type: integer
+          description: ID log terakhir client
+        - name: camera_id
+          in: query
+          schema:
+            type: string
+          description: Filter per kamera
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+            maximum: 100
+          description: Maksimal log per response
+      responses:
+        '200':
+          description: Sukses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DetectionLog'
+                  meta:
+                    type: object
+                    properties:
+                      total_today:
+                        type: integer
+                      latest_id:
+                        type: integer
+
+  /edge/cameras:
+    get:
+      summary: Daftar kamera untuk edge device
+      description: |
+        Edge device memanggil endpoint ini untuk sync daftar kamera.
+        Filter berdasarkan `device_id` query parameter.
+      tags:
+        - Edge
+      parameters:
+        - name: device_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: ID edge device
+      responses:
+        '200':
+          description: Daftar kamera
+
+  /edge/heartbeat:
+    post:
+      summary: Heartbeat dari edge device
+      description: |
+        Dikirim setiap 30 detik oleh orchestrator.py.
+        `metrics` opsional — jika ada, update `edge_metrics` JSON.
+      tags:
+        - Edge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - device_id
+              properties:
+                device_id:
+                  type: string
+                metrics:
+                  type: object
+                  properties:
+                    cpu_percent:
+                      type: number
+                    memory_percent:
+                      type: number
+      responses:
+        '200':
+          description: Heartbeat diterima
+
+  /reports:
+    post:
+      summary: Kirim laporan warga
+      description: Warga mengirim laporan pelanggaran
+      tags:
+        - Reports
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - location_name
+              properties:
+                location_name:
+                  type: string
+                latitude:
+                  type: number
+                longitude:
+                  type: number
+                media:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Laporan berhasil dibuat
+
+  /wh/reports:
+    get:
+      summary: Daftar laporan untuk Wilayatul Hisbah
+      tags:
+        - WH
+      responses:
+        '200':
+          description: List laporan pending WH
+
+  /wh/reports/{id}/verify:
+    post:
+      summary: Verifikasi/tolak laporan oleh WH
+      tags:
+        - WH
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [verified, rejected]
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Laporan diproses
+
+  /admin/settings:
+    get:
+      summary: Ambil pengaturan break mode
+      tags:
+        - Admin
+      responses:
+        '200':
+          description: Status break mode dan jam istirahat
+    post:
+      summary: Simpan pengaturan break mode
+      tags:
+        - Admin
+      responses:
+        '200':
+          description: Pengaturan berhasil disimpan
+
+components:
+  schemas:
+    DetectionLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        camera_id:
+          type: string
+        label_id:
+          type: integer
+        confidence_score:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        label_detected:
+          type: string
+        camera:
+          type: object
+          properties:
+            id:
+              type: string
+            location_name:
+              type: string
+        label:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string

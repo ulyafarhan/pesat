@@ -1,45 +1,30 @@
-# Laravel
-/laravel/.phpunit.cache
-/laravel/bootstrap/ssr
-/laravel/node_modules
-/laravel/public/build
-/laravel/public/fonts-manifest.dev.json
-/laravel/public/hot
-/laravel/public/storage
-/laravel/resources/js/actions
-/laravel/resources/js/routes
-/laravel/resources/js/wayfinder
-/laravel/storage/*.key
-/laravel/storage/pail
-/laravel/vendor
+# Laravel (Hanya abaikan vendor, node_modules, log, cache, dan env sensitif)
+/laravel/node_modules/
+/laravel/vendor/
 /laravel/.env
 /laravel/.env.backup
 /laravel/.env.production
-/laravel/.phpactor.json
-/laravel/.phpunit.result.cache
-/laravel/Homestead.json
-/laravel/Homestead.yaml
-/laravel/npm-debug.log
-/laravel/yarn-error.log
-/laravel/auth.json
-
-# Laravel Runtime & Storage
 /laravel/storage/logs/*.log
+/laravel/storage/framework/cache/data/*
+/laravel/storage/framework/sessions/*
+/laravel/storage/framework/views/*
 /laravel/storage/app/detections/*
 !/laravel/storage/app/detections/.gitkeep
-/laravel/storage/app/public/*
-!/laravel/storage/app/public/.gitkeep
 /laravel/database/*.sqlite
 /laravel/database/*.sqlite-journal
 
-# Python edge
-/mlcv/venv
-/mlcv/__pycache__
-/mlcv/**/__pycache__
-/mlcv/.pytest_cache
+# Python Edge (Hanya push file run produksi utama: orchestrator, camera_worker, inference_engine, config, rules, models, requirements)
+/mlcv/venv/
+/mlcv/__pycache__/
+/mlcv/**/__pycache__/
+/mlcv/.pytest_cache/
 /mlcv/relay.log
+/mlcv/test_inference.py
+/mlcv/tests/
 
-# Large Binary & AI Assets
+# Abaikan gambar simulasi & log hasil proses kamera di mlcv
+/mlcv/cam*/processed/*
+/mlcv/cam*/.pytest_cache/
 /mlcv/*.ipynb
 
 # Dokumentasi Internal Agen AI (Hanya file spesifik ini yang diabaikan di root)
@@ -53,20 +38,16 @@
 /test-dummy/
 /.pytest_cache
 /.agent_*.json
-/mlcv/test_inference.py
 /test_diagnose.py
-/mlcv/tests/
 
 # GitHub Workflows
 /.github/
 
-# IDE
+# IDE & OS Cache
 /.fleet
 /.idea
 /.nova
 /.vscode
 /.zed
-
-# OS
 .DS_Store
 Thumbs.db

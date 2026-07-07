@@ -21,7 +21,7 @@ start "PESAT Queue Worker" cmd /c "php artisan queue:listen"
 cd ..
 
 echo 5. Memulai Edge Orchestrator (AI)...
-start "PESAT Edge Orchestrator" cmd /k "call start.bat"
+start "PESAT Edge Orchestrator" cmd /k "cd mlcv && (if not exist .venv (echo Membuat .venv... && python -m venv .venv && call .venv\Scripts\activate && pip install -r requirements.txt)) && call .venv\Scripts\activate && cd .. && python mlcv/orchestrator.py"
 
 echo.
 echo Selesai! 5 jendela terminal telah dibuka.
